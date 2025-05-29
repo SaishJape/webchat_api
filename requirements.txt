@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+requests
+beautifulsoup4
+langchain
+qdrant-client
+pydantic
+python-dotenv
+google-generativeai
+tqdm
