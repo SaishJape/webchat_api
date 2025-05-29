@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from app.db.models import QARequest, ScrapeRequest
-from app.services.gemini import ask_gemini, get_embeddings, get_question_embedding
+from app.services.gemini import ask_gemini
+from app.services.embeddings import get_embeddings, get_question_embedding
 from app.utils.common import crawl_website, clean_text, chunk_text
 from app.db.qdrant import ingest_to_qdrant, query_qdrant, qdrant
 import hashlib
