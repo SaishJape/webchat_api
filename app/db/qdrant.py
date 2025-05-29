@@ -2,8 +2,12 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct
 from typing import List
 import logging
+import os
+from dotenv import load_dotenv
 
-qdrant = QdrantClient(host="localhost", port=6333)
+load_dotenv()
+
+qdrant = QdrantClient(host= os.getenv("QDRANT_HOST", "localhost"), port=os.getenv("PORT",6333))
 
 VECTOR_SIZE = 384
 
