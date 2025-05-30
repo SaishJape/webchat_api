@@ -7,22 +7,35 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-qdrant = QdrantClient(host= os.getenv("QDRANT_HOST", "localhost"), port=os.getenv("PORT",6333))
+# Initialize Qdrant client
+qdrant = QdrantClient(
+    host=os.getenv("QDRANT_HOST", "localhost"), 
+    port=int(os.getenv("QDRANT_PORT", 6333))
+)
 
 VECTOR_SIZE = 384
 
 def create_collection_if_not_exists(collection_name: str) -> None:
+    """Create a Qdrant collection if it doesn't exist."""
     try:
-        qdrant.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
-        )
+        # Check if collection exists
+        collections = qdrant.get_collections()
+        existing_names = [col.name for col in collections.collections]
+        
+        if collection_name not in existing_names:
+            qdrant.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
+            )
+            logging.info(f"Created collection: {collection_name}")
+        else:
+            logging.info(f"Collection {collection_name} already exists")
     except Exception as e:
-        if "already exists" not in str(e).lower():
-            logging.error(f"Failed to create collection: {e}")
-            raise
+        logging.error(f"Failed to create collection: {e}")
+        raise
 
 def ingest_to_qdrant(collection_name: str, texts: List[str], embeddings: List[List[float]]) -> None:
+    """Ingest text chunks and embeddings into Qdrant."""
     create_collection_if_not_exists(collection_name)
 
     if not texts or not embeddings or len(texts) != len(embeddings):
@@ -38,15 +51,31 @@ def ingest_to_qdrant(collection_name: str, texts: List[str], embeddings: List[Li
         logging.warning("No points to insert into Qdrant.")
         return
 
-    qdrant.upsert(collection_name=collection_name, points=points)
+    try:
+        qdrant.upsert(collection_name=collection_name, points=points)
+        logging.info(f"Successfully ingested {len(points)} points to collection {collection_name}")
+    except Exception as e:
+        logging.error(f"Failed to ingest to Qdrant: {e}")
+        raise
 
-
-def query_qdrant(collection_name: str, query_vector: List[float]) -> List[dict]:
-    """Query top 3 relevant chunks from Qdrant using cosine similarity."""
-    hits = qdrant.search(
-        collection_name=collection_name,
-        query_vector=query_vector,
-        
-        limit=3
-    )
-    return [hit.dict() for hit in hits]
+def query_qdrant(collection_name: str, query_vector: List[float], limit: int = 3) -> List[dict]:
+    """Query top relevant chunks from Qdrant using cosine similarity."""
+    try:
+        hits = qdrant.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            limit=limit,
+            with_payload=True
+        )
+        return [
+            {
+                "id": hit.id,
+                "score": hit.score,
+                "payload": hit.payload
+            }
+            for hit in hits
+        ]
+    except Exception as e:
+        logging.error(f"Failed to query Qdrant: {e}")
+        return []
+    
