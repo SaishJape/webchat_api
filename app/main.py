@@ -1,8 +1,14 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import uvicorn
+import logging
 
 from app.api.routes import router
+from app.utils.logger import setup_logger
+
+# Setup logging
+setup_logger()
 
 app = FastAPI(
     title="Web Scraping Q&A Chatbot",
@@ -10,7 +16,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Middleware (optional but useful for frontend integration)
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Change in production
@@ -22,7 +28,7 @@ app.add_middleware(
 # Include all routes from the API router
 app.include_router(router)
 
-# Custom 404 handler (optional)
+# Custom 404 handler
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc):
     return JSONResponse(
@@ -30,11 +36,15 @@ async def custom_404_handler(request: Request, exc):
         content={"message": "Oops! The resource was not found."},
     )
 
-# Startup and Shutdown Events (for DB, scraping schedulers, etc.)
+# Startup and Shutdown Events
 @app.on_event("startup")
 async def startup_event():
-    print("Application startup: Initialize services or DB connections here.")
+    logging.info("Application startup: Services initialized.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    print("Application shutdown: Clean up services or DB connections here.")
+    logging.info("Application shutdown: Cleaning up services.")
+
+# Entry point for running with uvicorn
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

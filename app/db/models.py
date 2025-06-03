@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
 class ScrapeRequest(BaseModel):
-    url: str
+    url: HttpUrl
 
 class QARequest(BaseModel):
     question: str

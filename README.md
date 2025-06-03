@@ -1,93 +1,330 @@
-# webchat_widget
+# Web Scraping Q&A Chatbot 🤖
 
+An intelligent chatbot that scrapes websites and answers questions using vector embeddings, Qdrant vector database, and Google's Gemini AI.
 
+## 🚀 Features
 
-## Getting started
+- **Web Scraping**: Automatically crawls and extracts content from websites
+- **Vector Search**: Uses sentence transformers for semantic search
+- **AI-Powered Answers**: Leverages Google Gemini for intelligent responses
+- **RESTful API**: Clean FastAPI endpoints for easy integration
+- **Scalable Storage**: Qdrant vector database for efficient similarity search
+- **Robust Error Handling**: Comprehensive logging and error management
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## 🏗️ Architecture
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/rahulwale123/webchat_widget.git
-git branch -M main
-git push -uf origin main
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Web Scraper   │───▶│   Text Chunker  │───▶│   Embeddings    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                                       │
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Gemini AI     │◀───│  Vector Search  │◀───│   Qdrant DB     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## Integrate with your tools
+## 📋 Prerequisites
 
-- [ ] [Set up project integrations](https://gitlab.com/rahulwale123/webchat_widget/-/settings/integrations)
+- Python 3.8+
+- Docker (for Qdrant)
+- Google Gemini API Key
 
-## Collaborate with your team
+## 🛠️ Installation
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd web-scraping-qa-chatbot
+   ```
 
-## Test and Deploy
+2. **Create virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-Use the built-in continuous integration in GitLab.
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+4. **Set up environment variables**
+   Create a `.env` file in the root directory:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   QDRANT_HOST=localhost
+   QDRANT_PORT=6333
+   ```
 
-***
+5. **Start Qdrant database**
+   ```bash
+   docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant
+   ```
 
-# Editing this README
+6. **Run the application**
+   ```bash
+   python main.py
+   ```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## 📁 Project Structure
 
-## Suggestions for a good README
+```
+web-scraping-qa-chatbot/
+├── main.py                 # FastAPI application entry point
+├── requirements.txt        # Python dependencies
+├── .env                   # Environment variables
+├── .gitignore            # Git ignore rules
+├── README.md             # Project documentation
+└── app/
+    ├── __init__.py
+    ├── api/
+    │   ├── __init__.py
+    │   └── routes.py      # API endpoint definitions
+    ├── db/
+    │   ├── __init__.py
+    │   ├── models.py      # Pydantic models
+    │   └── qdrant.py      # Qdrant database operations
+    ├── services/
+    │   ├── __init__.py
+    │   ├── embeddings.py  # Text embedding generation
+    │   └── gemini.py      # Gemini AI integration
+    └── utils/
+        ├── __init__.py
+        ├── common.py      # Web scraping utilities
+        └── logger.py      # Logging configuration
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## 🌐 API Endpoints
 
-## Name
-Choose a self-explaining name for your project.
+### Health Check
+```http
+GET /health
+```
+Returns the health status of the application.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### List Collections
+```http
+GET /collections
+```
+Returns all available document collections.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### Scrape and Ingest
+```http
+POST /scrape-and-ingest
+Content-Type: application/json
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+{
+  "url": "https://example.com"
+}
+```
+Scrapes the website and ingests content into the vector database.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### Ask Question
+```http
+POST /ask-question
+Content-Type: application/json
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+{
+  "question": "What is this website about?",
+  "collection_name": "collection_hash_from_ingest"
+}
+```
+Asks a question based on the ingested website content.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## 💡 Usage Examples
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### 1. Using cURL
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+**Scrape a website:**
+```bash
+curl -X POST "http://localhost:8000/scrape-and-ingest" \
+     -H "Content-Type: application/json" \
+     -d '{"url": "https://docs.python.org"}'
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+**Ask a question:**
+```bash
+curl -X POST "http://localhost:8000/ask-question" \
+     -H "Content-Type: application/json" \
+     -d '{"question": "What is Python?", "collection_name": "abc123def456"}'
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+### 2. Using Python requests
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```python
+import requests
 
-## License
-For open source projects, say how it is licensed.
+# Scrape and ingest
+response = requests.post(
+    "http://localhost:8000/scrape-and-ingest",
+    json={"url": "https://fastapi.tiangolo.com/"}
+)
+collection_name = response.json()["collection_name"]
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+# Ask question
+response = requests.post(
+    "http://localhost:8000/ask-question",
+    json={
+        "question": "How do I create a FastAPI application?",
+        "collection_name": collection_name
+    }
+)
+print(response.json()["answer"])
+```
+
+### 3. Using JavaScript/Fetch
+
+```javascript
+// Scrape and ingest
+const scrapeResponse = await fetch('http://localhost:8000/scrape-and-ingest', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({url: 'https://example.com'})
+});
+const {collection_name} = await scrapeResponse.json();
+
+// Ask question
+const qaResponse = await fetch('http://localhost:8000/ask-question', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    question: 'What does this website offer?',
+    collection_name: collection_name
+  })
+});
+const {answer} = await qaResponse.json();
+console.log(answer);
+```
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GEMINI_API_KEY` | Google Gemini API key | Required |
+| `QDRANT_HOST` | Qdrant database host | `localhost` |
+| `QDRANT_PORT` | Qdrant database port | `6333` |
+
+### Customization Options
+
+- **Chunk Size**: Modify `chunk_size` in `common.py` (default: 1000)
+- **Overlap**: Adjust `chunk_overlap` in `common.py` (default: 200)
+- **Max Pages**: Change `max_pages` in crawling function (default: 10)
+- **Vector Dimensions**: Update `VECTOR_SIZE` in `qdrant.py` (default: 384)
+
+## 🚨 Error Handling
+
+The application includes comprehensive error handling:
+
+- **Network Errors**: Retry mechanisms for web scraping
+- **API Errors**: Graceful handling of Gemini API failures
+- **Database Errors**: Qdrant connection and query error handling
+- **Validation Errors**: Input validation with detailed error messages
+
+## 📊 Monitoring and Logging
+
+Logs are written to console with timestamps and log levels:
+```
+[2024-01-15 10:30:45] INFO - Application startup: Services initialized.
+[2024-01-15 10:31:12] INFO - Crawling: https://example.com
+[2024-01-15 10:31:15] INFO - Generated 25 text chunks
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Qdrant Connection Error**
+   ```
+   Solution: Ensure Qdrant is running on the correct port (6333)
+   ```
+
+2. **Gemini API Error**
+   ```
+   Solution: Check your API key and quota limits
+   ```
+
+3. **Web Scraping Failures**
+   ```
+   Solution: Some websites block scrapers; try different user agents
+   ```
+
+### Debug Mode
+
+Run with debug logging:
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## 🚀 Deployment
+
+### Docker Deployment
+
+1. **Create Dockerfile**
+   ```dockerfile
+   FROM python:3.9-slim
+   WORKDIR /app
+   COPY requirements.txt .
+   RUN pip install -r requirements.txt
+   COPY . .
+   EXPOSE 8000
+   CMD ["python", "main.py"]
+   ```
+
+2. **Docker Compose**
+   ```yaml
+   version: '3.8'
+   services:
+     app:
+       build: .
+       ports:
+         - "8000:8000"
+       environment:
+         - GEMINI_API_KEY=${GEMINI_API_KEY}
+         - QDRANT_HOST=qdrant
+     qdrant:
+       image: qdrant/qdrant
+       ports:
+         - "6333:6333"
+   ```
+
+### Production Considerations
+
+- Use environment-specific configurations
+- Implement rate limiting
+- Add authentication for sensitive endpoints
+- Use HTTPS in production
+- Monitor resource usage and scaling
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern web framework
+- [Qdrant](https://qdrant.tech/) - Vector similarity search engine
+- [Google Gemini](https://ai.google.dev/) - Large language model
+- [Sentence Transformers](https://www.sbert.net/) - Text embeddings
+- [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) - HTML parsing
+
+## 📞 Support
+
+For support and questions:
+- Create an issue in the repository
+- Contact: [your-email@example.com]
+- Documentation: [Link to detailed docs]
+
+---
+
+**Made with ❤️ by AI Team**
