@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from app.db.models import QARequest, ScrapeRequest
-from app.services.gemini import ask_gemini
+from app.services.gemini import ask_gemini, analyze_user_query, ask_gemini_enhanced
 from app.services.embeddings import get_embeddings, get_question_embedding
 from app.utils.common import crawl_website, clean_text, chunk_text, extract_website_name
-from app.db.qdrant import ingest_to_qdrant, query_qdrant
+from app.db.qdrant import ingest_to_qdrant, query_qdrant, enhanced_query_qdrant
 import hashlib
 import logging
 
@@ -64,33 +64,47 @@ async def scrape_and_ingest(req: ScrapeRequest):
 
 @router.post("/ask-question")
 async def ask_question(req: QARequest):
-    """Ask a question based on ingested website content."""
+    """Ask a question with enhanced query analysis and retrieval."""
     try:
         logging.info(f"Processing question: {req.question}")
+        
+        # Analyze user query using Gemini
+        query_analysis = analyze_user_query(req.question)
+        logging.info(f"Query analysis: {query_analysis}")
         
         # Generate question embedding
         question_embedding = get_question_embedding(req.question)
         
-        # Query Qdrant for relevant chunks
-        results = query_qdrant(req.collection_name, question_embedding)
+        # Enhanced query with keywords
+        results = enhanced_query_qdrant(
+            req.collection_name, 
+            question_embedding, 
+            query_analysis.get('keywords', [req.question])
+        )
         
-        # Prepare context from retrieved chunks
+        # Prepare enhanced context
         if results:
             context_chunks = []
             for result in results:
                 if result.get('payload') and result['payload'].get('text'):
-                    context_chunks.append(result['payload']['text'])
+                    # Add relevance info to context
+                    text = result['payload']['text']
+                    score = result.get('score', 0)
+                    context_chunks.append(f"[Relevance: {score:.3f}] {text}")
+            
             context = "\n\n".join(context_chunks)
         else:
             context = ""
         
-        # Get answer from Gemini
-        answer = ask_gemini(context, req.question)
+        # Enhanced prompt for Gemini
+        enhanced_answer = ask_gemini_enhanced(context, req.question, query_analysis)
         
         return {
-            "answer": answer,
+            "answer": enhanced_answer,
+            "query_analysis": query_analysis,
             "sources_found": len(results),
-            "context_used": bool(context.strip())
+            "context_used": bool(context.strip()),
+            "top_relevance_score": results[0].get('score', 0) if results else 0
         }
         
     except Exception as e:

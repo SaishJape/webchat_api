@@ -79,3 +79,40 @@ def query_qdrant(collection_name: str, query_vector: List[float], limit: int = 3
         logging.error(f"Failed to query Qdrant: {e}")
         return []
     
+def enhanced_query_qdrant(collection_name: str, query_vector: List[float], keywords: List[str], limit: int = 5) -> List[dict]:
+    """Enhanced query with keyword filtering and multiple search strategies."""
+    try:
+        # Primary vector search
+        hits = qdrant.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            limit=limit * 2,  # Get more results initially
+            with_payload=True
+        )
+        
+        results = []
+        for hit in hits:
+            score = hit.score
+            payload = hit.payload
+            
+            # Boost score if keywords found in text
+            if payload and payload.get('text'):
+                text_lower = payload['text'].lower()
+                keyword_matches = sum(1 for keyword in keywords if keyword.lower() in text_lower)
+                if keyword_matches > 0:
+                    score += (keyword_matches * 0.1)  # Boost score
+            
+            results.append({
+                "id": hit.id,
+                "score": score,
+                "payload": payload,
+                "keyword_matches": keyword_matches if 'keyword_matches' in locals() else 0
+            })
+        
+        # Sort by enhanced score and return top results
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:limit]
+        
+    except Exception as e:
+        logging.error(f"Failed to query Qdrant: {e}")
+        return []
