@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
-from app.db.database import init_db
+from app.db.mysql import init_db
 import logging
 import sys
 

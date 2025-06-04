@@ -9,7 +9,7 @@ from app.auth.auth import (
     get_password_hash, verify_password, create_access_token,
     get_current_active_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.db.database import get_db
+from app.db.mysql import get_db
 import mysql.connector
 import logging
 from typing import Dict, Optional, List
@@ -549,56 +549,39 @@ def update_progress(task_id: str, status: str, **kwargs):
 @router.post("/ask-question")
 async def ask_question(
     req: QARequest,
-    current_user = Depends(get_current_active_user),
+    # current_user = Depends(get_current_active_user),
     db = Depends(get_db)
 ):
-    """Ask a question using user's collection."""
+    """Ask a question using user's collection and return clean chatbot-ready JSON."""
     try:
-        # Use user's ID as collection name
-        collection_name = current_user['id']
-        
+        # collection_name = current_user['id']
         logging.info(f"Processing question: {req.question}")
-        
-        # Analyze user query using Gemini
+
+        # Analyze and embed
         query_analysis = analyze_user_query(req.question)
-        logging.info(f"Query analysis: {query_analysis}")
-        
-        # Generate question embedding
         question_embedding = get_question_embedding(req.question)
-        
-        # Enhanced query with keywords
+
+        # Retrieve related content
         results = enhanced_query_qdrant(
-            collection_name, 
-            question_embedding, 
+            req.collection_name,
+            question_embedding,
             query_analysis.get('keywords', [req.question])
         )
-        
-        # Prepare enhanced context
+
+        context_chunks = []
         if results:
-            context_chunks = []
             for result in results:
                 if result.get('payload') and result['payload'].get('text'):
-                    # Add relevance info to context
                     text = result['payload']['text']
                     score = result.get('score', 0)
                     context_chunks.append(f"[Relevance: {score:.3f}] {text}")
-            
-            context = "\n\n".join(context_chunks)
-        else:
-            context = ""
-        
-        # Enhanced prompt for Gemini
-        enhanced_answer = ask_gemini_enhanced(context, req.question, query_analysis)
-        
-        return {
-            "answer": enhanced_answer,
-            "query_analysis": query_analysis,
-            "sources_found": len(results),
-            "context_used": bool(context.strip()),
-            "top_relevance_score": results[0].get('score', 0) if results else 0
-        }
-        
+        context = "\n\n".join(context_chunks)
+
+        # Get structured answer from Gemini
+        gemini_output = ask_gemini(context, req.question, query_analysis)
+
+        return gemini_output
+
     except Exception as e:
         logging.error(f"Error in ask_question: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-

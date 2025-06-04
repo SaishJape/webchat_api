@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from app.db.database import get_db
+from app.db.mysql import get_db
 import os
 from dotenv import load_dotenv
 import logging
