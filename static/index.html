@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Scraping & Chat Interface</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
     <style>
         .gradient-bg {
             background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
@@ -36,322 +38,112 @@
     <!-- Auth Container -->
     <div id="authContainer" class="container mx-auto px-4 py-8">
         <!-- Login Form -->
-        <div id="loginForm" class="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 mb-8">
-            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
-            <form onsubmit="return handleLogin(event)" class="space-y-4">
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="loginEmail">Email</label>
-                    <input type="email" id="loginEmail" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <div id="loginForm" class="max-w-md mx-auto card animate-fade-in">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Welcome Back</h2>
+            <form class="space-y-4">
+                <div class="form-group">
+                    <label class="form-label" for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" required class="form-input">
                 </div>
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="loginPassword">Password</label>
-                    <input type="password" id="loginPassword" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="form-group">
+                    <label class="form-label" for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required class="form-input">
                 </div>
-                <button type="submit"
-                    class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200">
+                <button type="submit" class="btn btn-primary w-full">
                     Login
                 </button>
             </form>
             <p class="mt-4 text-center text-gray-600">
                 Don't have an account? 
-                <a href="#" onclick="toggleAuthForms()" class="text-blue-500 hover:text-blue-600">Sign up</a>
+                <a href="#" onclick="toggleAuthForms()" class="text-primary hover:text-primary-dark">Sign up</a>
             </p>
         </div>
 
         <!-- Signup Form -->
-        <div id="signupForm" class="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 mb-8 hidden">
-            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Sign Up</h2>
-            <form onsubmit="return handleSignup(event)" class="space-y-4">
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="signupEmail">Email</label>
-                    <input type="email" id="signupEmail" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <div id="signupForm" class="max-w-md mx-auto card animate-fade-in hidden">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Create Account</h2>
+            <form class="space-y-4">
+                <div class="form-group">
+                    <label class="form-label" for="signupEmail">Email</label>
+                    <input type="email" id="signupEmail" required class="form-input">
                 </div>
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="signupUsername">Username</label>
-                    <input type="text" id="signupUsername" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="form-group">
+                    <label class="form-label" for="signupUsername">Username</label>
+                    <input type="text" id="signupUsername" required class="form-input">
                 </div>
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="signupPassword">Password</label>
-                    <input type="password" id="signupPassword" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="form-group">
+                    <label class="form-label" for="signupPassword">Password</label>
+                    <input type="password" id="signupPassword" required class="form-input">
                 </div>
-                <button type="submit"
-                    class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition duration-200">
+                <button type="submit" class="btn btn-secondary w-full">
                     Sign Up
                 </button>
             </form>
             <p class="mt-4 text-center text-gray-600">
                 Already have an account? 
-                <a href="#" onclick="toggleAuthForms()" class="text-blue-500 hover:text-blue-600">Login</a>
+                <a href="#" onclick="toggleAuthForms()" class="text-primary hover:text-primary-dark">Login</a>
             </p>
         </div>
     </div>
 
     <!-- Main Content (Hidden until logged in) -->
     <div id="mainContent" class="container mx-auto px-4 py-8 hidden">
+        <!-- Header with Logout -->
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-2xl font-bold text-gray-800">Web Scraping & PDF Processing</h1>
+            <button id="logoutButton" class="btn btn-secondary">
+                <span class="mr-2">👋</span>
+                Logout
+            </button>
+        </div>
+
         <!-- Web Scraping Form -->
-        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6 mb-8">
-            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Web Scraping</h2>
-            <form onsubmit="return handleScraping(event)" class="space-y-4">
-                <div>
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="url">Website URL</label>
-                    <input type="url" id="url" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="https://example.com">
+        <div class="max-w-2xl mx-auto card animate-fade-in">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Process Your Content</h2>
+            <form id="scrapingForm" class="space-y-4">
+                <div class="form-group">
+                    <label class="form-label" for="url">Website URL</label>
+                    <input type="url" id="url" class="form-input" placeholder="https://example.com">
                 </div>
-                <button type="submit"
-                    class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200">
-                    Start Scraping
+                <div class="text-center">
+                    <span class="text-gray-600">OR</span>
+                </div>
+                <div class="file-upload">
+                    <div class="file-upload-icon">📄</div>
+                    <p class="text-gray-600">Drag and drop your PDF here or click to browse</p>
+                    <input type="file" id="pdfFile" accept=".pdf">
+                </div>
+                <button type="submit" class="btn btn-primary w-full">
+                    Start Processing
                 </button>
             </form>
 
             <!-- Progress Steps -->
             <div class="mt-8">
-                <div class="flex justify-between items-center mb-4">
-                    <div class="step step-pending" id="step1">Crawling</div>
-                    <div class="step step-pending" id="step2">Processing</div>
-                    <div class="step step-pending" id="step3">Generating Embeddings</div>
-                    <div class="step step-pending" id="step4">Storing</div>
-                    <div class="step step-pending" id="step5">Completed</div>
+                <div class="progress-steps">
+                    <div class="step step-pending" id="step1">1</div>
+                    <div class="step step-pending" id="step2">2</div>
+                    <div class="step step-pending" id="step3">3</div>
+                    <div class="step step-pending" id="step4">4</div>
+                    <div class="step step-pending" id="step5">5</div>
                 </div>
                 <div id="progressMessage" class="text-center text-gray-600 mt-4"></div>
             </div>
 
-            <!-- Chat Widget Code (Hidden until scraping is complete) -->
+            <!-- Chat Widget Code (Hidden until processing is complete) -->
             <div id="chatWidgetCode" class="mt-8 hidden">
                 <h3 class="text-xl font-bold mb-4">Your Chat Widget Code</h3>
                 <p class="text-gray-600 mb-4">Copy and paste this code into your website to add the chat widget:</p>
-                <div class="code-block" id="iframeCode"></div>
-                <button onclick="copyIframeCode()" class="mt-4 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200">
-                    Copy Code
+                <div class="code-block">
+                    <pre id="iframeCode"></pre>
+                    <button id="copyButton" class="copy-button">
+                        Copy
                 </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <script>
-        const API_BASE_URL = 'http://localhost:8000/api';
-        let currentUser = null;
-        let currentTaskId = null;
-        let isCompleted = false;
-
-        // Toggle between login and signup forms
-        function toggleAuthForms() {
-            const loginForm = document.getElementById('loginForm');
-            const signupForm = document.getElementById('signupForm');
-            loginForm.classList.toggle('hidden');
-            signupForm.classList.toggle('hidden');
-        }
-
-        // Handle login
-        async function handleLogin(event) {
-            event.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/login/json`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ email, password }),
-                });
-
-                if (!response.ok) {
-                    throw new Error('Login failed');
-                }
-
-                const data = await response.json();
-                localStorage.setItem('token', data.access_token);
-                currentUser = { email };
-                showMainContent();
-            } catch (error) {
-                alert('Login failed. Please check your credentials.');
-            }
-        }
-
-        // Handle signup
-        async function handleSignup(event) {
-            event.preventDefault();
-            const email = document.getElementById('signupEmail').value;
-            const username = document.getElementById('signupUsername').value;
-            const password = document.getElementById('signupPassword').value;
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/signup`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ email, username, password }),
-                });
-
-                if (!response.ok) {
-                    throw new Error('Signup failed');
-                }
-
-                alert('Signup successful! Please login.');
-                toggleAuthForms();
-            } catch (error) {
-                alert('Signup failed. Please try again.');
-            }
-        }
-
-        // Show main content after login
-        function showMainContent() {
-            document.getElementById('authContainer').classList.add('hidden');
-            document.getElementById('mainContent').classList.remove('hidden');
-        }
-
-        // Handle scraping
-        async function handleScraping(event) {
-            event.preventDefault();
-            const url = document.getElementById('url').value;
-            resetProgress();
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/scrape-and-ingest`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    },
-                    body: JSON.stringify({ url }),
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to start scraping');
-                }
-
-                const data = await response.json();
-                currentTaskId = data.task_id;
-                startProgressCheck();
-            } catch (error) {
-                alert('Failed to start scraping. Please try again.');
-            }
-        }
-
-        // Reset progress indicators
-        function resetProgress() {
-            const steps = document.querySelectorAll('.step');
-            steps.forEach(step => {
-                step.className = 'step step-pending';
-            });
-            document.getElementById('progressMessage').textContent = '';
-            document.getElementById('chatWidgetCode').classList.add('hidden');
-            isCompleted = false;
-        }
-
-        // Update progress UI
-        function updateProgress(status) {
-            const steps = {
-                'crawling': 1,
-                'processing': 2,
-                'generating_embeddings': 3,
-                'storing': 4,
-                'completed': 5
-            };
-
-            // Update all steps up to current status
-            for (let i = 1; i <= 5; i++) {
-                const step = document.getElementById(`step${i}`);
-                if (i < steps[status]) {
-                    step.className = 'step step-completed';
-                } else if (i === steps[status]) {
-                    step.className = 'step step-active';
-                } else {
-                    step.className = 'step step-pending';
-                }
-            }
-
-            // Update progress message
-            const messages = {
-                'crawling': 'Crawling website...',
-                'processing': 'Processing content...',
-                'generating_embeddings': 'Generating embeddings...',
-                'storing': 'Storing data...',
-                'completed': 'Scraping completed successfully!'
-            };
-            document.getElementById('progressMessage').textContent = messages[status] || '';
-        }
-
-        // Check scraping progress
-        async function checkProgress() {
-            if (!currentTaskId || isCompleted) return;
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/scraping-progress/${currentTaskId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    },
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to check progress');
-                }
-
-                const data = await response.json();
-                updateProgress(data.status);
-
-                if (data.status === 'completed') {
-                    isCompleted = true;
-                    showChatWidgetCode(data.result.collection_name);
-                } else if (data.error) {
-                    alert(`Error: ${data.error}`);
-                    isCompleted = true;
-                } else {
-                    setTimeout(checkProgress, 2000);
-                }
-            } catch (error) {
-                console.error('Error checking progress:', error);
-                setTimeout(checkProgress, 2000);
-            }
-        }
-
-        // Start progress checking
-        function startProgressCheck() {
-            checkProgress();
-        }
-
-        // Show chat widget code
-        function showChatWidgetCode(collectionName) {
-            const chatWidgetCode = document.getElementById('chatWidgetCode');
-            const iframeCode = document.getElementById('iframeCode');
-            const code = `<iframe 
-  src="http://localhost:8080?collection_name=${collectionName}" 
-  width="500" 
-  height="800" 
-  style="background: transparent; border: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;" 
-  allowtransparency="true" 
-  title="My Chatbot">
-</iframe>`;
-            iframeCode.textContent = code;
-            chatWidgetCode.classList.remove('hidden');
-        }
-
-        // Copy iframe code to clipboard
-        function copyIframeCode() {
-            const code = document.getElementById('iframeCode').textContent;
-            navigator.clipboard.writeText(code).then(() => {
-                alert('Code copied to clipboard!');
-            }).catch(err => {
-                console.error('Failed to copy code:', err);
-                alert('Failed to copy code. Please try again.');
-            });
-        }
-
-        // Check if user is logged in on page load
-        window.onload = function() {
-            const token = localStorage.getItem('token');
-            if (token) {
-                showMainContent();
-            }
-        };
-    </script>
+    <script src="script.js"></script>
 </body>
 </html> 
