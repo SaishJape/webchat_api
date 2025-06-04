@@ -4,11 +4,6 @@ from app.api.routes import router
 from app.db.database import init_db
 import logging
 import sys
-import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -49,4 +44,4 @@ async def startup_event():
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting server...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000) 

@@ -1,8 +1,37 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from datetime import datetime
+import uuid
 
-class ScrapeRequest(BaseModel):
-    url: HttpUrl
+class UserBase(BaseModel):
+    email: EmailStr
+    username: str
+
+class UserCreate(UserBase):
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class User(UserBase):
+    id: str
+    created_at: datetime
+    is_active: bool = True
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    user_id: Optional[str] = None
 
 class QARequest(BaseModel):
     question: str
     collection_name: str
+
+class ScrapeRequest(BaseModel):
+    url: str
