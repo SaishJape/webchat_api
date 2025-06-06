@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from app.db.models import QARequest, ScrapeRequest, UserCreate, UserLogin, User, Token
-from app.services.gemini import ask_gemini, analyze_user_query, ask_gemini_enhanced
+from app.services.gemini import ask_gemini, enhanced_query_with_gemini, translate_to_english
 from app.services.embeddings import get_embeddings, get_question_embedding
 from app.utils.common import crawl_website, clean_text, chunk_text, extract_website_name
 from app.db.qdrant import ingest_to_qdrant, query_qdrant, enhanced_query_qdrant
@@ -81,7 +81,7 @@ def preprocess_text(text: str) -> str:
     text = re.sub(r'\s+([.,!?])', r'\1', text)
     return text.strip()
 
-def create_chunks(text: str, chunk_size: int = 64, overlap: int = 10) -> List[str]:
+def create_chunks(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
     """Create overlapping chunks from text with fixed size."""
     if not text:
         return []
@@ -372,19 +372,28 @@ async def upload_and_process(
 
         # Create chunks from the text
         try:
-            chunks = create_chunks(text_content)
+            chunks = create_chunks(text_content, chunk_size=1000, overlap=200)
             logger.info(f"Created {len(chunks)} chunks from text")
+            
+            # Validate chunks
+            valid_chunks = [chunk for chunk in chunks if chunk.strip()]
+            if len(valid_chunks) != len(chunks):
+                logger.warning(f"Filtered out {len(chunks) - len(valid_chunks)} empty chunks")
+                chunks = valid_chunks
+                
+            if not chunks:
+                raise HTTPException(status_code=400, detail="No valid text chunks could be created from the file")
+                
         except Exception as e:
             logger.error(f"Error creating chunks: {str(e)}")
             raise HTTPException(status_code=400, detail=f"Error creating text chunks: {str(e)}")
 
-        if not chunks:
-            logger.warning("No valid chunks created from text")
-            raise HTTPException(status_code=400, detail="No valid text chunks could be created from the file")
-
         # Generate embeddings
         try:
             embeddings = get_embeddings(chunks)
+            if not embeddings or len(embeddings) != len(chunks):
+                raise Exception("Embedding generation failed or produced mismatched results")
+            logger.info(f"Generated {len(embeddings)} embeddings")
         except Exception as e:
             logger.error(f"Error generating embeddings: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error generating embeddings: {str(e)}")
@@ -392,11 +401,11 @@ async def upload_and_process(
         # Ingest to Qdrant
         try:
             ingest_to_qdrant(collection_name, chunks, embeddings)
+            logger.info(f"Successfully ingested {len(chunks)} chunks to collection {collection_name}")
         except Exception as e:
             logger.error(f"Error ingesting to Qdrant: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error storing data: {str(e)}")
 
-        logger.info(f"Successfully processed file {file.filename} for collection {collection_name}")
         return {
             "status": "success",
             "message": "File processed and stored successfully",
@@ -406,7 +415,6 @@ async def upload_and_process(
         }
 
     except HTTPException as he:
-        # Re-raise HTTP exceptions as they are already properly formatted
         raise he
     except Exception as e:
         logger.error(f"Unexpected error in upload_and_process: {str(e)}")
@@ -546,42 +554,81 @@ def update_progress(task_id: str, status: str, **kwargs):
     if status in ["completed", "error"]:
         scraping_progress[task_id]["is_completed"] = True
 
+# @router.post("/ask-question")
+# async def ask_question(
+#     req: QARequest,
+#     # current_user = Depends(get_current_active_user),
+#     db = Depends(get_db)
+# ):
+#     """Ask a question using user's collection and return clean chatbot-ready JSON."""
+#     try:
+#         logging.info(f"Processing question: {req.question}")
+
+#         # Get question embedding
+#         question_embedding = get_question_embedding(req.question)
+
+#         # Use enhanced query with Gemini for better processing
+#         enhanced_results = enhanced_query_with_gemini(
+#             collection_name=req.collection_name,
+#             user_query=req.question,
+#             query_vector=question_embedding,
+#             limit=5
+#         )
+
+#         # Extract context from search results
+#         context_chunks = []
+#         if enhanced_results.get('search_results'):
+#             for result in enhanced_results['search_results']:
+#                 if result.get('payload') and result['payload'].get('text'):
+#                     text = result['payload']['text']
+#                     score = result.get('score', 0)
+#                     context_chunks.append(f"[Relevance: {score:.3f}] {text}")
+#         context = "\n\n".join(context_chunks)
+
+#         print("enhanced_results.get('context_text', {}) -> ", enhanced_results.get('context_text', {}))
+#         # Get structured answer from Gemini
+#         gemini_output = ask_gemini(context, req.question, enhanced_results.get('context_text', {}))
+
+#         return gemini_output
+
+#     except Exception as e:
+#         logging.error(f"Error in ask_question: {e}")
+#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 @router.post("/ask-question")
-async def ask_question(
-    req: QARequest,
-    # current_user = Depends(get_current_active_user),
-    db = Depends(get_db)
-):
-    """Ask a question using user's collection and return clean chatbot-ready JSON."""
+async def ask_question(req: QARequest, db=Depends(get_db)):
     try:
-        # collection_name = current_user['id']
         logging.info(f"Processing question: {req.question}")
+        
+        translated_query = translate_to_english(req.question)
 
-        # Analyze and embed
-        query_analysis = analyze_user_query(req.question)
-        question_embedding = get_question_embedding(req.question)
+        # Step 1: Get embedding
+        # question_embedding = get_question_embedding(req.question)
+        question_embedding = get_question_embedding(translated_query)
 
-        # Retrieve related content
-        results = enhanced_query_qdrant(
-            req.collection_name,
-            question_embedding,
-            query_analysis.get('keywords', [req.question])
+        # Step 2: Enhanced query to get search results and context
+        enhanced_results = enhanced_query_with_gemini(
+            collection_name=req.collection_name,
+            user_query=translated_query,
+            # user_query=req.question,
+            query_vector=question_embedding,
+            limit=5
         )
 
-        context_chunks = []
-        if results:
-            for result in results:
-                if result.get('payload') and result['payload'].get('text'):
-                    text = result['payload']['text']
-                    score = result.get('score', 0)
-                    context_chunks.append(f"[Relevance: {score:.3f}] {text}")
-        context = "\n\n".join(context_chunks)
+        # Step 3: Ask Gemini with the full context and results
+        final_response = ask_gemini(
+            enhanced_results.get("context_text", ""),  # context string
+            req.question,                              # user question
+            enhanced_results.get("processed_query", {}),  # parsed search info
+            enhanced_results                            # full result dict
+        )
 
-        # Get structured answer from Gemini
-        gemini_output = ask_gemini(context, req.question, query_analysis)
-
-        return gemini_output
+        return final_response
 
     except Exception as e:
         logging.error(f"Error in ask_question: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        return {
+            "response": "Something went wrong while answering your question.",
+            "buttons": False,
+            "button_type": None,
+            "button_data": None
+        }

@@ -122,4 +122,4 @@ def get_db():
     finally:
         if connection.is_connected():
             connection.close()
-            logger.info("Database connection closed") 
+            # logger.info("Database connection closed") 
