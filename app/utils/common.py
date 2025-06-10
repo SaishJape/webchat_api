@@ -63,51 +63,6 @@ def chunk_text(text: str) -> list[str]:
         logging.error(f"Failed to chunk text: {e}")
         return []
 
-def crawl_website(start_url: str, max_pages: int = 10) -> Dict[str, str]:
-    """Crawl a website starting from the given URL."""
-    visited = set()
-    data = {}
-    urls_to_visit = [start_url]
-    
-    while urls_to_visit and len(visited) < max_pages:
-        current_url = urls_to_visit.pop(0)
-        
-        if current_url in visited:
-            continue
-            
-        try:
-            logging.info(f"Crawling: {current_url}")
-            html = scrape_url(current_url)
-            
-            if not html:
-                continue
-                
-            # Check if it's HTML content
-            if "text/html" not in requests.head(current_url, timeout=5).headers.get("Content-Type", ""):
-                continue
-                
-            visited.add(current_url)
-            data[current_url] = html
-            
-            # Extract links for further crawling
-            soup = BeautifulSoup(html, "html.parser")
-            for link in soup.find_all("a", href=True):
-                full_url = urljoin(current_url, link["href"])
-                
-                # Only crawl links from the same domain
-                if (urlparse(full_url).netloc == urlparse(start_url).netloc 
-                    and full_url not in visited 
-                    and full_url not in urls_to_visit
-                    and len(visited) < max_pages):
-                    urls_to_visit.append(full_url)
-                    
-        except Exception as e:
-            logging.error(f"Error crawling {current_url}: {e}")
-            continue
-    
-    logging.info(f"Crawled {len(data)} pages")
-    return data
-
 def extract_website_name(url: str) -> str:
     """Extract a clean website name from URL to use as collection name."""
     try:
@@ -146,3 +101,81 @@ def extract_website_name(url: str) -> str:
         logging.warning(f"Failed to extract website name from {url}: {e}")
         # Fallback to hash
         return hashlib.md5(url.encode()).hexdigest()[:8]
+
+
+
+def crawl_website(start_url: str, max_pages: int = None) -> Dict[str, str]:
+    """Crawl a website starting from the given URL. If max_pages is None, crawl all pages."""
+    visited = set()
+    data = {}
+    urls_to_visit = [start_url]
+    
+    while urls_to_visit:
+        # If max_pages is set and we've reached the limit, stop
+        if max_pages is not None and len(visited) >= max_pages:
+            break
+            
+        current_url = urls_to_visit.pop(0)
+        
+        if current_url in visited:
+            continue
+            
+        try:
+            logging.info(f"Crawling: {current_url} (Total crawled: {len(visited)})")
+            html = scrape_url(current_url)
+            
+            if not html:
+                continue
+                
+            # Check if it's HTML content
+            try:
+                response_check = requests.head(current_url, timeout=5)
+                content_type = response_check.headers.get("Content-Type", "")
+                if "text/html" not in content_type:
+                    continue
+            except:
+                # If head request fails, assume it's HTML and continue
+                pass
+                
+            visited.add(current_url)
+            data[current_url] = html
+            
+            # Extract links for further crawling
+            soup = BeautifulSoup(html, "html.parser")
+            for link in soup.find_all("a", href=True):
+                full_url = urljoin(current_url, link["href"])
+                
+                # Only crawl links from the same domain
+                if (urlparse(full_url).netloc == urlparse(start_url).netloc 
+                    and full_url not in visited 
+                    and full_url not in urls_to_visit):
+                    
+                    # Skip certain file types and fragments
+                    if not should_skip_url(full_url):
+                        urls_to_visit.append(full_url)
+                    
+        except Exception as e:
+            logging.error(f"Error crawling {current_url}: {e}")
+            continue
+    
+    logging.info(f"Crawling completed. Total pages crawled: {len(data)}")
+    return data
+
+def should_skip_url(url: str) -> bool:
+    """Check if URL should be skipped based on file extension or other criteria."""
+    skip_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.rar', '.exe', '.dmg', '.mp4', '.mp3', '.avi']
+    skip_patterns = ['#', 'mailto:', 'tel:', 'javascript:', 'ftp://']
+    
+    url_lower = url.lower()
+    
+    # Skip if it has a file extension we don't want
+    for ext in skip_extensions:
+        if url_lower.endswith(ext):
+            return True
+    
+    # Skip if it matches certain patterns
+    for pattern in skip_patterns:
+        if pattern in url_lower:
+            return True
+    
+    return False

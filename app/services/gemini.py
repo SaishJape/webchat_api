@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import google.generativeai as genai
 from dotenv import load_dotenv
 import os
@@ -28,7 +28,7 @@ genai.configure(api_key=api_key)
 import google.generativeai as genai
 
 # Make sure to configure your API key before calling the function, e.g.:
-# genai.configure(api_key="YOUR_API_KEY")
+genai.configure(api_key="AIzaSyCo2Hhvv_Qs1O52jGj7EMXL1Ve4HgaOLyM")
 
 def translate_to_english(user_query: str) -> str:
     """
@@ -77,53 +77,21 @@ def translate_to_english(user_query: str) -> str:
         return "" # Return an empty string on error
 
 
-def ask_gemini(context: str, question: str, query_analysis: dict, enhanced_results: dict) -> dict:
+def ask_gemini(context: str, question: str, query_analysis: dict, enhanced_results: dict, conversation_history: Optional[List[Dict[str, str]]] = None) -> dict:
     """Ask Gemini and return a structured JSON response with optional buttons."""
 
     try:
         model = genai.GenerativeModel("gemini-1.5-flash")
 
-        # prompt = (
-        #     "You are the official AI assistant of the company, designed to be smart, professional, and friendly.\n"
-        #     "Use the internal company content below to help answer the user's question.\n\n"
-
-        #     "🎯 Output Format Instructions:\n"
-        #     "- ONLY return a **valid raw JSON object**. Do NOT include markdown (```json), quotes, or any extra text.\n"
-        #     "- The JSON must contain exactly these 4 keys:\n"
-        #     "  1. 'response': string → a clear, helpful, and grammatically correct sentence. Always provide a response — even for greetings or questions not found in the context.\n"
-        #     "  2. 'buttons': boolean → true **only if actionable info** (email, phone, LinkedIn, etc.) is found in the context and relevant to the question.\n"
-        #     "  3. 'button_type': list of strings like [\"email\", \"linkedin\", \"website\", \"phone\"], or null if buttons is false.\n"
-        #     "  4. 'button_data': list of actual values from context matching the types above, or null if buttons is false.\n\n"
-
-        #     "🧠 Rules:\n"
-        #     "- If the user greets you (e.g., says 'hi', 'hello', 'hey'), respond warmly and naturally.\n"
-        #     "- If the question is general or out-of-scope but can be answered politely, do so in a professional tone.\n"
-        #     "- Use only real data from the context for button values. Never guess or hallucinate values.\n"
-        #     "- If no actionable data is present or needed, set:\n"
-        #     "  \"buttons\": false,\n"
-        #     "  \"button_type\": null,\n"
-        #     "  \"button_data\": null\n\n"
-
-        #     "✅ Example Output:\n"
-        #     '{\n'
-        #     '  "response": "Welcome! I\'m here to help you with any questions about the company. How can I assist you today?",\n'
-        #     '  "buttons": false,\n'
-        #     '  "button_type": null,\n'
-        #     '  "button_data": null\n'
-        #     '}\n\n'
-
-        #     "OR (if contact info is found):\n"
-        #     '{\n'
-        #     '  "response": "You can reach us through the following contact options:",\n'
-        #     '  "buttons": true,\n'
-        #     '  "button_type": ["email", "linkedin"],\n'
-        #     '  "button_data": ["info@company.com", "https://linkedin.com/company/example"]\n'
-        #     '}\n\n'
-
-        #     f"📄 Internal Company Content:\n{enhanced_results}\n\n"
-        #     f"❓ User Question:\n{question}\n\n"
-        #     "✍️ Please respond now with the final raw JSON object only:"
-        # )
+        # Format conversation history if available
+        conversation_context = ""
+        if conversation_history:
+            conversation_context = "Previous conversation:\n"
+            for msg in conversation_history:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                conversation_context += f"{role.capitalize()}: {content}\n"
+            conversation_context += "\n"
 
         prompt = (
             "You are the official AI assistant of the company, designed to be smart, professional, and friendly.\n"
@@ -166,6 +134,7 @@ def ask_gemini(context: str, question: str, query_analysis: dict, enhanced_resul
             '  "button_data": ["info@company.com", "https://linkedin.com/company/example"]\n'
             '}\n\n'
 
+            f"{conversation_context}"
             f"📄 Internal Company Content:\n{enhanced_results}\n\n"
             f"❓ User Question:\n{question}\n\n"
             "✍️ Please respond now with the final raw JSON object only:"

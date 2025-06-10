@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import StreamingResponse
 from app.db.models import QARequest, ScrapeRequest, UserCreate, UserLogin, User, Token
 from app.services.gemini import ask_gemini, enhanced_query_with_gemini, translate_to_english
 from app.services.embeddings import get_embeddings, get_question_embedding
@@ -24,6 +25,8 @@ import PyPDF2
 import xml.etree.ElementTree as ET
 import os
 from pathlib import Path
+import json
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -487,8 +490,8 @@ async def process_scraping(url: str, task_id: str, collection_name: str):
         # Update status to crawling
         update_progress(task_id, "crawling")
         
-        # Crawl the website
-        pages = crawl_website(str(url))
+        # Crawl the website WITHOUT LIMIT - will crawl all pages
+        pages = crawl_website(str(url), max_pages=None)  # None means unlimited
         
         if not pages:
             update_progress(task_id, "error", error="No pages could be scraped from the provided URL")
@@ -540,6 +543,7 @@ async def process_scraping(url: str, task_id: str, collection_name: str):
         logger.error(f"Error in scraping process: {e}")
         update_progress(task_id, "error", error=str(e))
 
+
 def update_progress(task_id: str, status: str, **kwargs):
     """Update progress with new status and optional data."""
     if task_id not in scraping_progress:
@@ -554,62 +558,87 @@ def update_progress(task_id: str, status: str, **kwargs):
     if status in ["completed", "error"]:
         scraping_progress[task_id]["is_completed"] = True
 
-# @router.post("/ask-question")
-# async def ask_question(
-#     req: QARequest,
-#     # current_user = Depends(get_current_active_user),
-#     db = Depends(get_db)
-# ):
-#     """Ask a question using user's collection and return clean chatbot-ready JSON."""
-#     try:
-#         logging.info(f"Processing question: {req.question}")
+def get_or_create_conversation(db, collection_name: str) -> str:
+    """Get existing conversation or create new one for collection."""
+    cursor = db.cursor(dictionary=True)
+    
+    # Try to get existing conversation
+    cursor.execute("""
+        SELECT id FROM conversations 
+        WHERE collection_name = %s 
+        ORDER BY updated_at DESC 
+        LIMIT 1
+    """, (collection_name,))
+    
+    conversation = cursor.fetchone()
+    
+    if conversation:
+        conversation_id = conversation['id']
+        # Update timestamp
+        cursor.execute("""
+            UPDATE conversations 
+            SET updated_at = NOW() 
+            WHERE id = %s
+        """, (conversation_id,))
+    else:
+        # Create new conversation
+        conversation_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO conversations (id, collection_name, messages, created_at, updated_at)
+            VALUES (%s, %s, %s, NOW(), NOW())
+        """, (conversation_id, collection_name, json.dumps([])))
+    
+    db.commit()
+    cursor.close()
+    return conversation_id
 
-#         # Get question embedding
-#         question_embedding = get_question_embedding(req.question)
+def get_conversation_history(db, conversation_id: str) -> List[Dict[str, str]]:
+    """Get conversation history from database."""
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT messages FROM conversations 
+        WHERE id = %s
+    """, (conversation_id,))
+    
+    result = cursor.fetchone()
+    cursor.close()
+    
+    if result and result['messages']:
+        return json.loads(result['messages'])
+    return []
 
-#         # Use enhanced query with Gemini for better processing
-#         enhanced_results = enhanced_query_with_gemini(
-#             collection_name=req.collection_name,
-#             user_query=req.question,
-#             query_vector=question_embedding,
-#             limit=5
-#         )
+def update_conversation_history(db, conversation_id: str, messages: List[Dict[str, str]]):
+    """Update conversation history in database."""
+    cursor = db.cursor()
+    cursor.execute("""
+        UPDATE conversations 
+        SET messages = %s, updated_at = NOW()
+        WHERE id = %s
+    """, (json.dumps(messages), conversation_id))
+    
+    db.commit()
+    cursor.close()
 
-#         # Extract context from search results
-#         context_chunks = []
-#         if enhanced_results.get('search_results'):
-#             for result in enhanced_results['search_results']:
-#                 if result.get('payload') and result['payload'].get('text'):
-#                     text = result['payload']['text']
-#                     score = result.get('score', 0)
-#                     context_chunks.append(f"[Relevance: {score:.3f}] {text}")
-#         context = "\n\n".join(context_chunks)
-
-#         print("enhanced_results.get('context_text', {}) -> ", enhanced_results.get('context_text', {}))
-#         # Get structured answer from Gemini
-#         gemini_output = ask_gemini(context, req.question, enhanced_results.get('context_text', {}))
-
-#         return gemini_output
-
-#     except Exception as e:
-#         logging.error(f"Error in ask_question: {e}")
-#         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 @router.post("/ask-question")
 async def ask_question(req: QARequest, db=Depends(get_db)):
     try:
         logging.info(f"Processing question: {req.question}")
         
+        # Get or create conversation
+        conversation_id = get_or_create_conversation(db, req.collection_name)
+        
+        # Get existing conversation history
+        conversation_history = get_conversation_history(db, conversation_id)
+        
         translated_query = translate_to_english(req.question)
 
         # Step 1: Get embedding
-        # question_embedding = get_question_embedding(req.question)
         question_embedding = get_question_embedding(translated_query)
 
         # Step 2: Enhanced query to get search results and context
         enhanced_results = enhanced_query_with_gemini(
             collection_name=req.collection_name,
             user_query=translated_query,
-            # user_query=req.question,
             query_vector=question_embedding,
             limit=5
         )
@@ -619,9 +648,17 @@ async def ask_question(req: QARequest, db=Depends(get_db)):
             enhanced_results.get("context_text", ""),  # context string
             req.question,                              # user question
             enhanced_results.get("processed_query", {}),  # parsed search info
-            enhanced_results                            # full result dict
+            enhanced_results,                          # full result dict
+            conversation_history                       # conversation history
         )
 
+        # Update conversation history with new messages
+        conversation_history.append({"role": "user", "content": req.question})
+        conversation_history.append({"role": "assistant", "content": final_response["response"]})
+        update_conversation_history(db, conversation_id, conversation_history)
+
+        # Add conversation_id to response
+        final_response["conversation_id"] = conversation_id
         return final_response
 
     except Exception as e:
@@ -630,5 +667,90 @@ async def ask_question(req: QARequest, db=Depends(get_db)):
             "response": "Something went wrong while answering your question.",
             "buttons": False,
             "button_type": None,
-            "button_data": None
+            "button_data": None,
+            "conversation_id": None
         }
+
+@router.get("/process-status/{task_id}")
+async def process_status(task_id: str):
+    async def generate():
+        # Initial state
+        states = {
+            'crawling': {
+                'status': 'pending',
+                'message': 'Waiting to start crawling...',
+                'progress': 0
+            },
+            'processing': {
+                'status': 'pending',
+                'message': 'Waiting to start processing...',
+                'progress': 0
+            },
+            'generating_embeddings': {
+                'status': 'pending',
+                'message': 'Waiting to generate embeddings...',
+                'progress': 0
+            },
+            'storing': {
+                'status': 'pending',
+                'message': 'Waiting to store data...',
+                'progress': 0
+            },
+            'completed': {
+                'status': 'pending',
+                'message': 'Waiting for completion...',
+                'progress': 0
+            }
+        }
+        
+        current_state = 'crawling'
+        total_steps = len(states)
+        
+        try:
+            # Simulate processing steps
+            for step in states.keys():
+                current_state = step
+                states[step]['status'] = 'active'
+                states[step]['message'] = f'Starting {step.replace("_", " ")}...'
+                states[step]['progress'] = 0
+                
+                # Send initial state
+                yield f"data: {json.dumps({'states': states, 'current_state': current_state})}\n\n"
+                
+                # Simulate progress for current step
+                for progress in range(0, 101, 10):
+                    states[step]['progress'] = progress
+                    states[step]['message'] = f'{step.replace("_", " ").title()}: {progress}% complete'
+                    
+                    # Log to terminal
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] {step}: {progress}% - {states[step]['message']}")
+                    
+                    yield f"data: {json.dumps({'states': states, 'current_state': current_state})}\n\n"
+                    await asyncio.sleep(0.5)  # Use asyncio.sleep instead of time.sleep
+                
+                # Mark step as completed
+                states[step]['status'] = 'completed'
+                states[step]['message'] = f'{step.replace("_", " ").title()} completed'
+                states[step]['progress'] = 100
+                
+                yield f"data: {json.dumps({'states': states, 'current_state': current_state})}\n\n"
+                
+                if step != 'completed':
+                    await asyncio.sleep(1)  # Use asyncio.sleep instead of time.sleep
+            
+            # Send final completion message
+            yield f"data: {json.dumps({'states': states, 'current_state': 'completed', 'is_complete': True})}\n\n"
+            
+        except Exception as e:
+            print(f"Error in process_status: {str(e)}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+        }
+    )

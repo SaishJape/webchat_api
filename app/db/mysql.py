@@ -64,55 +64,45 @@ def create_database():
             logger.info("Database connection closed")
 
 def init_db():
-    """Initialize database and create tables if they don't exist"""
-    connection = None
-    cursor = None
+    """Initialize database with required tables."""
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    
     try:
-        # First ensure database exists
-        logger.info("Starting database initialization...")
-        create_database()
-        
-        # Then connect to the database and create tables
-        connection = get_db_connection()
-        cursor = connection.cursor()
-
-        # Create users table
-        logger.info("Creating users table if not exists...")
+        # Create users table if not exists
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id VARCHAR(36) PRIMARY KEY,
                 email VARCHAR(255) UNIQUE NOT NULL,
-                username VARCHAR(255) UNIQUE NOT NULL,
+                username VARCHAR(255) NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 is_active BOOLEAN DEFAULT TRUE
             )
         """)
-
+        
+        # Create conversations table if not exists
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id VARCHAR(36) PRIMARY KEY,
+                collection_name VARCHAR(255) NOT NULL,
+                messages JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_collection_name (collection_name),
+                INDEX idx_updated_at (updated_at)
+            )
+        """)
+        
         connection.commit()
-        logger.info("Users table created or already exists")
-        
-        # Verify table creation
-        cursor.execute("SHOW TABLES")
-        tables = cursor.fetchall()
-        logger.info(f"Current tables in database: {[table[0] for table in tables]}")
-        
-        # Verify users table structure
-        cursor.execute("DESCRIBE users")
-        columns = cursor.fetchall()
-        logger.info("Users table structure:")
-        for column in columns:
-            logger.info(f"Column: {column[0]}, Type: {column[1]}, Null: {column[2]}, Key: {column[3]}, Default: {column[4]}")
-            
+        logger.info("Database tables initialized successfully")
     except Error as e:
-        logger.error(f"Failed to initialize database tables: {e}")
+        logger.error(f"Error initializing database tables: {e}")
         raise e
     finally:
-        if cursor:
-            cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
-            logger.info("Database connection closed")
+        cursor.close()
+        connection.close()
+        logger.info("Database connection closed")
 
 def get_db():
     """Get database connection"""

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List, Dict
 from datetime import datetime
+
 class UserBase(BaseModel):
     email: EmailStr
     username: str
@@ -30,6 +31,16 @@ class TokenData(BaseModel):
 class QARequest(BaseModel):
     question: str
     collection_name: str
+
+class Conversation(BaseModel):
+    id: str
+    collection_name: str
+    messages: List[Dict[str, str]]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class ScrapeRequest(BaseModel):
     url: str
